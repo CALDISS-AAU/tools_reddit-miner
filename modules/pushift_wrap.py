@@ -3,6 +3,7 @@ import time
 import random
 import os 
 import json
+import math
 
 sub_end = "https://api.pushshift.io/reddit/search/submission/"
 subcomment_end = "https://api.pushshift.io/reddit/submission/comment_ids/"
@@ -26,10 +27,20 @@ def get_comments(commentids, fields = ['author', 'banned_at_utc', 'body', 'colla
                  'link_id', 'parent_id', 'permalink', 'retrieved_on', 'score', 'stickied', 'subreddit', 'subreddit_id', 'total_awards_received']):
     
     endpoint = 'https://api.pushshift.io/reddit/search/comment/'
-    commentids_str = ','.join(commentids)
+    
+    max_ids = 500
+    split = math.ceil(len(commentids)/max_ids)
+
     comment_fields_str = ','.join(fields)
+
+    comments = []
+    for i in range(split):
+        ids_chunk = commentids[i*max_ids:(i+1)*max_ids]
+        commentids_str = ','.join(ids_chunk)
+
+        request_url = f"{endpoint}?ids={commentids_str}&fields={comment_fields_str}"
+
+        comments_chunk = requests.get(request_url).json().get('data')
+        comments = comments + comments_chunk
     
-    request_url = f"{endpoint}?ids={commentids_str}&fields={comment_fields_str}"
-    
-    comments = requests.get(request_url).json().get('data')
     return(comments)
