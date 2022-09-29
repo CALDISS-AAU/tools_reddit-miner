@@ -1,15 +1,18 @@
+#!/usr/bin/env python
+
 import requests
 import time
 import random
 import os 
 import json
+from json import JSONDecodeError
 import math
 
 sub_end = "https://api.pushshift.io/reddit/search/submission/"
 subcomment_end = "https://api.pushshift.io/reddit/submission/comment_ids/"
 comment_end = "https://api.pushshift.io/reddit/search/comment/"
 
-def get_submissions(subreddit, before, after, q = "", num_comments = 15, fields = ['author', 'created_utc', 'domain', 'full_link', 'gildings', 'id', 'is_original_content', 'is_reddit_media_domain', 
+def get_submissions(subreddit, before, after, q = "", size = 499, fields = ['author', 'created_utc', 'domain', 'full_link', 'gildings', 'id', 'is_original_content', 'is_reddit_media_domain', 
                                                                            'locked', 'media_only', 'num_comments', 'num_crossposts', 'over_18', 'permalink', 'pinned', 'post_hint', 'preview', 
                                                                            'retrieved_on', 'score', 'selftext', 'spoiler', 'stickied', 'subreddit', 'subreddit_id', 'subreddit_subscribers',
                                                                            'subreddit_type', 'thumbnail', 'title', 'total_awards_received', 'upvote_ratio', 'url', 'url_overridden_by_dest',
@@ -18,9 +21,36 @@ def get_submissions(subreddit, before, after, q = "", num_comments = 15, fields 
     endpoint = "https://api.pushshift.io/reddit/search/submission/"
     fields_str = ','.join(fields)
     
-    request_url = f"{endpoint}?subreddit={subreddit}&before={before}&after={after}&size=100&num_comments=>{num_comments}&q={q}&fields={fields_str}"
+    start_time = after
+    end_time = before
     
-    submissions = requests.get(request_url).json().get('data')
+    # Split time period into intervals
+    interval = int(0.5 * 86400) # half a day
+    
+    from_time_epoch = start_time
+
+    submissions = []
+    while from_time_epoch <= end_time:
+
+        to_time_epoch = from_time_epoch + interval 
+        
+        request_url = f"{endpoint}?subreddit={subreddit}&before={to_time_epoch}&after={from_time_epoch}&size={size}&q={q}&fields={fields_str}"
+        
+        r = requests.get(request_url)
+        
+        while r.status_code != 200:
+            
+            time.sleep(random.uniform(0.03, 0.10))
+            
+            r = requests.get(request_url)
+        
+        new_submissions = r.json().get('data')
+        submissions = submissions + new_submissions
+        
+        from_time_epoch = to_time_epoch
+
+        time.sleep(random.uniform(0.03, 0.10))
+        
     return(submissions)
     
 def get_comments(commentids, fields = ['author', 'banned_at_utc', 'body', 'collapsed', 'collapsed_reason', 'comment_type', 'created_utc', 'edited', 'id', 'is_submitter',
@@ -39,8 +69,18 @@ def get_comments(commentids, fields = ['author', 'banned_at_utc', 'body', 'colla
         commentids_str = ','.join(ids_chunk)
 
         request_url = f"{endpoint}?ids={commentids_str}&fields={comment_fields_str}"
-
-        comments_chunk = requests.get(request_url).json().get('data')
+        
+        r = requests.get(request_url)
+        
+        while r.status_code != 200:
+            
+            time.sleep(random.uniform(0.03, 0.10))
+            
+            r = requests.get(request_url)
+            
+        comments_chunk = r.json().get('data')
         comments = comments + comments_chunk
-    
+        
+        time.sleep(random.uniform(0.03, 0.10))
+        
     return(comments)
